@@ -10,6 +10,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
@@ -165,6 +166,18 @@ public class SpiderUtils {
             // 不需要特殊处理
             return resourceUrl;
         }
+        //以下方法对相对路径进行转换
+        try {
+            URL absoluteUrl = new URL(pageUrl);
+            URL relativeUrl = new URL(absoluteUrl ,resourceUrl );
+            String tgtUrl = relativeUrl.toExternalForm();
+            if(null != tgtUrl){
+                return tgtUrl;
+            }
+        } catch (Exception e) {
+            logger.error("解析项目对路径出错; pageUrl="+pageUrl+";resourceUrl="+resourceUrl, e);
+        }
+        //
         String targerUrl = resourceUrl;
         //
         String scheme = getScheme(pageUrl);
@@ -182,6 +195,7 @@ public class SpiderUtils {
              if(resourceUrl.startsWith("./")){
                  resourceUrl = resourceUrl.substring(2);
              }
+             // ../../../ 这种形式?
             // 相对路径
             int hostIndex = pageUrl.indexOf(host);
             int lastSlashIndex = pageUrl.lastIndexOf("/");
@@ -215,6 +229,13 @@ public class SpiderUtils {
             int srcStartIndex = cur.indexOf(charSplit, srcIndex1);
             int srcEndIndex = cur.indexOf(charSplit, srcIndex1+1);
             //
+            if(srcStartIndex < 0 || srcEndIndex < 1){
+                continue;
+            }
+            if(srcEndIndex < srcStartIndex+1){
+                continue;
+            }
+
             String src = cur.substring(srcStartIndex+1, srcEndIndex);
             //
             urlSet.add(src);
@@ -237,7 +258,15 @@ public class SpiderUtils {
             String cur = matcher.group();
             //
             int srcIndex = cur.indexOf("src=");
-            int srcIndex1 = srcIndex + 4;
+            int srcIndex1 = srcIndex + "src=".length();
+            if(srcIndex < 0){
+                srcIndex = cur.indexOf("data-original=");
+                srcIndex1 = srcIndex + "data-original=".length();
+            }
+            // 没找到。。。
+            if(srcIndex < 0){
+                continue;
+            }
             //
             String charSplit = cur.substring(srcIndex1, srcIndex1+1);
             //
@@ -280,7 +309,8 @@ public class SpiderUtils {
         //String scheme = getScheme(url);
         String host = getHost(url);
         // 不在白名单之中...
-        if(!whiteList.contains(host)){
+
+        if(!isInWhiteList(whiteList, host)){
             return;
         }
         // 创建 host 目录
@@ -289,9 +319,9 @@ public class SpiderUtils {
             hostDir.mkdirs();
         }
         //
-        log("准备抓取:"+url);
-        String initContent = getUrlAsString(url);
+        log("准备抓取:" + url);
         GRABS_URL.put(url, url);
+        String initContent = getUrlAsString(url);
         //
         Set<String> imgUrlSet = parseImageSet(initContent);
         Set<String> hrefUrlSet = parseHrefSet(initContent);
@@ -313,7 +343,7 @@ public class SpiderUtils {
             imgUrl = parseRelativeUriPath(url, imgUrl);
 
             try{
-                saveUrlAsFile(imgUrl, baseDir);
+                saveUrlAsFile(imgUrl, hostDir);
                 //TimeUnit.MILLISECONDS.sleep(10);
             } catch (Exception e){
                 logger.error(e.getMessage(), e);
@@ -322,6 +352,12 @@ public class SpiderUtils {
         //
         //log("===========================href:");
         for(String href : hrefUrlSet){
+            if(null == href){
+                continue;
+            }
+            if(href.trim().startsWith("javascript:")){
+                continue;
+            }
             // 解析相对路径
             href = parseRelativeUriPath(url, href);
             if(GRABS_URL.containsKey(href)){
@@ -342,6 +378,24 @@ public class SpiderUtils {
         }
         //
         return;
+    }
+
+    // 判断是否在白名单。。。
+    private static boolean isInWhiteList(List<String> whiteList, String host) {
+        boolean isIn = false;
+        if(null == host){ return isIn; }
+        isIn = whiteList.contains(host);
+        if(isIn){ return isIn; }
+        //
+        for(String whiteHost : whiteList){
+            if(null == whiteHost || whiteHost.trim().isEmpty()){ continue; }
+            //
+            if(host.endsWith(whiteHost)){
+                isIn = true;
+                break;
+            }
+        }
+        return isIn;
     }
 
     private static boolean isInResourceSuffix(String href) {
@@ -419,19 +473,27 @@ public class SpiderUtils {
         File tempFile = new File(targetDir, tempFileName);
         //
         log("准备下载:"+url);
+        InputStream inputStream = null;
+        FileOutputStream fileOutputStream = null;
         try {
-            InputStream inputStream = getUrlAsStream(url);
-            FileOutputStream fileOutputStream = new FileOutputStream(tempFile);
-            IOUtils.copy(inputStream, fileOutputStream);
+            inputStream = getUrlAsStream(url);
+            fileOutputStream = new FileOutputStream(tempFile);
+            if(null != fileOutputStream){
+                IOUtils.copy(inputStream, fileOutputStream);
+                IOUtils.closeQuietly(fileOutputStream);
+                // 重命名
+                tempFile.renameTo(outputFile);
+                //
+                log("文件下载成功: " + outputFile.getAbsolutePath());
+            } else {
+                logger.debug("!!下载失败: url="+url);
+            }
+        } catch (Exception e) {
+            logger.error("下载失败: url="+url, e);
+        } finally {
             //
             IOUtils.closeQuietly(inputStream);
             IOUtils.closeQuietly(fileOutputStream);
-            // 重命名
-            tempFile.renameTo(outputFile);
-            //
-            log("文件下载成功: " + outputFile.getAbsolutePath());
-        } catch (Exception e) {
-            logger.error(e.getMessage(), e);
         }
         //
         GRABS_FILES.put(url, url);
@@ -448,6 +510,8 @@ public class SpiderUtils {
         String
                 initUrl = "http://beautyleg.com";
                 initUrl = "http://www.mzitu.com";
+                initUrl = "http://pp.163.com/square/";
+                initUrl = "http://www.fuliwc.com/";
         // 保存的基本路径
         String basePath = "D:\\usr\\spider_all";
         // 最大遍历深度
@@ -456,14 +520,37 @@ public class SpiderUtils {
         String[] targetHosts = {
                 "beautyleg.com",
                 "www.beautyleg.com",
-                "www.mzitu.com"
+                "www.mzitu.com",
+                "pp.163.com",
+                "www.fuliwc.com",
         };
         //
         List<String> hostList = Arrays.asList(targetHosts);
+        //
+        FileOutputStream errorLogOutputStream = null;
+        PrintStream err = System.err;
+        try {
+            // 错误日志。。。
+            String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
+            errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
+            //System.setErr(new PrintStream(errorLogOutputStream, true));
 
-        // 开始迭代抓取;
-        // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
-        spiderGrab(initUrl, basePath, hostList, maxDeep);
+            // 开始迭代抓取;
+            // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
+            // http://www.beautyleg.com/sample.php?no=300-1422
+            //String path = "http://beautyleg.com/photo/show.php?no=";
+            String path = "http://www.beautyleg.com/sample.php?no=";
+            for(int i=300; i<= 1422; i++){
+                initUrl = path + i;
+                spiderGrab(initUrl, basePath, hostList, maxDeep);
+            }
+        } catch (FileNotFoundException e) {
+            logger.error(e.getMessage(), e);
+        } finally {
+            //
+            System.setErr(err);
+            IOUtils.closeQuietly(errorLogOutputStream);
+        }
 
     }
 
