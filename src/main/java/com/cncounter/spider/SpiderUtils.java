@@ -3,13 +3,11 @@ package com.cncounter.spider;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.http.HttpHost;
 import org.apache.http.client.utils.HttpClientUtils;
 
 import java.io.*;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
-import java.net.URLConnection;
+import java.net.*;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -24,6 +22,8 @@ public class SpiderUtils {
 
     public static ConcurrentHashMap<String, String> GRABS_URL = new ConcurrentHashMap<String, String>();
     public static ConcurrentHashMap<String, String> GRABS_FILES = new ConcurrentHashMap<String, String>();
+    // 代理
+    public static HttpHost proxy = null;
 
     private static final Log logger = LogFactory.getLog(HttpClientUtils.class);
 
@@ -53,7 +53,14 @@ public class SpiderUtils {
         InputStream inputStream = null;
         URL realUrl = new URL(url);
         // 打开和URL之间的连接
-        URLConnection connection = realUrl.openConnection();
+        URLConnection connection = null;
+        //
+        if(null == proxy){
+            connection = realUrl.openConnection();
+        } else {
+            connection = realUrl.openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxy.getHostName(), proxy.getPort())));
+        }
+
         // 设置超时时间,10秒。宁可连接失败，也不能太慢
         connection.setConnectTimeout((int) TimeUnit.SECONDS.toMillis(10));
         // 建立实际的连接
