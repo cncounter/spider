@@ -4,12 +4,13 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.apache.http.HttpHost;
-import org.apache.http.client.utils.HttpClientUtils;
 
 import java.io.*;
 import java.net.*;
-import java.text.SimpleDateFormat;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -25,7 +26,7 @@ public class SpiderUtils {
     // 代理
     public static HttpHost proxy = null;
 
-    private static final Log logger = LogFactory.getLog(HttpClientUtils.class);
+    private static final Log logger = LogFactory.getLog(SpiderUtils.class);
 
     /**
      * 将URL连接为 InputStream, 主要用于下载文件
@@ -509,56 +510,6 @@ public class SpiderUtils {
     //
     public static void log(String msg){
         logger.info(msg);
-    }
-
-    //
-    public static void main(String[] args){
-        // 初始URL
-        String
-                initUrl = "http://beautyleg.com";
-                initUrl = "http://www.mzitu.com";
-                initUrl = "http://pp.163.com/square/";
-                initUrl = "http://www.fuliwc.com/";
-        // 保存的基本路径
-        String basePath = "D:\\usr\\spider_all";
-        // 最大遍历深度
-        int maxDeep = 150;
-        // 白名单 host
-        String[] targetHosts = {
-                "beautyleg.com",
-                "www.beautyleg.com",
-                "www.mzitu.com",
-                "pp.163.com",
-                "www.fuliwc.com",
-        };
-        //
-        List<String> hostList = Arrays.asList(targetHosts);
-        //
-        FileOutputStream errorLogOutputStream = null;
-        PrintStream err = System.err;
-        try {
-            // 错误日志。。。
-            String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
-            errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
-            //System.setErr(new PrintStream(errorLogOutputStream, true));
-
-            // 开始迭代抓取;
-            // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
-            // http://www.beautyleg.com/sample.php?no=300-1422
-            //String path = "http://beautyleg.com/photo/show.php?no=";
-            String path = "http://www.beautyleg.com/sample.php?no=";
-            for(int i=300; i<= 1422; i++){
-                initUrl = path + i;
-                spiderGrab(initUrl, basePath, hostList, maxDeep);
-            }
-        } catch (FileNotFoundException e) {
-            logger.error(e.getMessage(), e);
-        } finally {
-            //
-            System.setErr(err);
-            IOUtils.closeQuietly(errorLogOutputStream);
-        }
-
     }
 
 }
