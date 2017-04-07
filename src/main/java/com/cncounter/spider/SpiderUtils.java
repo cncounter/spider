@@ -7,10 +7,7 @@ import org.apache.http.HttpHost;
 
 import java.io.*;
 import java.net.*;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
@@ -27,6 +24,24 @@ public class SpiderUtils {
     public static HttpHost proxy = null;
 
     private static final Log logger = LogFactory.getLog(SpiderUtils.class);
+
+    public static List<String> resourceSuffix = new ArrayList<String>(){
+        private boolean toInit = toInitMethod();
+        private boolean toInitMethod(){
+            String[] suffixs = {
+                    ".jpg",
+                    ".png",
+                    ".jpeg",
+                    ".bmp",
+                    ".gif"
+            };
+            for(String s : suffixs){
+                this.add(s);
+            }
+            //
+            return true;
+        }
+    };
 
     /**
      * 将URL连接为 InputStream, 主要用于下载文件
@@ -411,14 +426,6 @@ public class SpiderUtils {
         if(href.contains("?")){
             href = href.substring(0, href.indexOf("?"));
         }
-        String[] resourceSuffix = {
-                ".jpg",
-                ".png",
-                ".jpeg",
-                ".bmp",
-                ".gif",
-        }
-        ;
         href = href.toLowerCase();
         for(String suffix : resourceSuffix){
             if(null == suffix){continue;}

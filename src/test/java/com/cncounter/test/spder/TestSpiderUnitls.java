@@ -39,7 +39,12 @@ public class TestSpiderUnitls {
                 "www.mzitu.com",
                 "pp.163.com",
                 "www.fuliwc.com",
+                "shipinmp4.com",
         };
+        //
+        SpiderUtils.resourceSuffix.add(".xml");
+        SpiderUtils.resourceSuffix.add(".ts");
+        SpiderUtils.resourceSuffix.add(".mu38");
         //
         List<String> hostList = Arrays.asList(targetHosts);
         //
@@ -54,12 +59,12 @@ public class TestSpiderUnitls {
             // 开始迭代抓取;
             // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
             // http://www.beautyleg.com/sample.php?no=300-1422
-            //String path = "http://beautyleg.com/photo/show.php?no=";
-            String path = "http://www.beautyleg.com/sample.php?no=";
-            for(int i=300; i<= 1422; i++){
-                initUrl = path + i;
+            String path = "http://201610.shipinmp4.com/";
+            //String path = "http://www.beautyleg.com/sample.php?no=";
+            //for(int i=300; i<= 1422; i++){
+                initUrl = path;// + i;
                 SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
-            }
+            //}
         } catch (FileNotFoundException e) {
             logger.error(e.getMessage(), e);
         } finally {
