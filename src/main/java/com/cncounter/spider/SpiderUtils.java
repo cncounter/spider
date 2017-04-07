@@ -22,6 +22,8 @@ public class SpiderUtils {
     public static ConcurrentHashMap<String, String> GRABS_FILES = new ConcurrentHashMap<String, String>();
     // 代理
     public static HttpHost proxy = null;
+    //
+    public static int MAX_CONN_TIMEOUT = 30;
 
     private static final Log logger = LogFactory.getLog(SpiderUtils.class);
 
@@ -77,8 +79,25 @@ public class SpiderUtils {
             connection = realUrl.openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxy.getHostName(), proxy.getPort())));
         }
 
+        Map<String, String> map = new HashMap<String,String>();
+        map.put("Accept", "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8");
+        map.put("Accept-Encoding", "gzip, deflate, sdch");
+        map.put("Accept-Language", "zh-CN,zh;q=0.8,en;q=0.6");
+        map.put("Cache-Control", "max-age=0");
+        map.put("Connection", "keep-alive");
+        //map.put("Host", "201610.shipinmp4.com");
+        map.put("Upgrade-Insecure-Requests", "1");
+        map.put("User-Agent", "Mozilla/5.0 (Windows NT 6.1; WOW64); AppleWebKit/537.36 (KHTML, like Gecko); Chrome/56.0.2924.87 Safari/537.36");
+        //
+        Set<String> keySet = map.keySet();
+        for(String key: keySet){
+            String value = map.get(key);
+            connection.setRequestProperty(key, value);
+        }
+
+
         // 设置超时时间,10秒。宁可连接失败，也不能太慢
-        connection.setConnectTimeout((int) TimeUnit.SECONDS.toMillis(10));
+        connection.setConnectTimeout((int) TimeUnit.SECONDS.toMillis(MAX_CONN_TIMEOUT));
         // 建立实际的连接
         connection.connect();
         //
@@ -238,13 +257,19 @@ public class SpiderUtils {
         //
         String regexStr = "<a[^>]+>";
         //
-        Pattern pattern = Pattern.compile(regexStr);
+        Pattern pattern = Pattern.compile(regexStr, Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(content);
         while(matcher.find()){
             //
             String cur = matcher.group();
             //
             int srcIndex = cur.indexOf("href=");
+            if(srcIndex < 0){
+                srcIndex = cur.indexOf("HREF=");
+            }
+            if(srcIndex < 0){
+                continue;
+            }
             int srcIndex1 = srcIndex + 5;
             //
             String charSplit = cur.substring(srcIndex1, srcIndex1+1);

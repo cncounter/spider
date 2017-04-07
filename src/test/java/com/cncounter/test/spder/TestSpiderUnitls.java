@@ -52,8 +52,8 @@ public class TestSpiderUnitls {
         PrintStream err = System.err;
         try {
             // 错误日志。。。
-            String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
-            errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
+            //String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
+            //errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
             //System.setErr(new PrintStream(errorLogOutputStream, true));
 
             // 开始迭代抓取;
@@ -65,7 +65,7 @@ public class TestSpiderUnitls {
                 initUrl = path;// + i;
                 SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
             //}
-        } catch (FileNotFoundException e) {
+        } catch (Exception e) {
             logger.error(e.getMessage(), e);
         } finally {
             //
