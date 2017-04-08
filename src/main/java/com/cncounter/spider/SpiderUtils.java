@@ -8,8 +8,8 @@ import org.apache.http.HttpHost;
 import java.io.*;
 import java.net.*;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,10 +20,24 @@ public class SpiderUtils {
 
     public static ConcurrentHashMap<String, String> GRABS_URL = new ConcurrentHashMap<String, String>();
     public static ConcurrentHashMap<String, String> GRABS_FILES = new ConcurrentHashMap<String, String>();
+    //
+    public static ThreadLocal<Integer> deepRecorder = new ThreadLocal<Integer>();
+    public static AtomicInteger downloadingTaskCount = new AtomicInteger(0);
+    //
+    public static ExecutorService downloadThreadPool = Executors.newFixedThreadPool(10, new ThreadFactory() {
+        private AtomicInteger count = new AtomicInteger(0);
+        @Override
+        public Thread newThread(Runnable r) {
+            Thread thread = new Thread(r);
+            thread.setDaemon(true);
+            thread.setName("download-thread-" + count.getAndIncrement());
+            return thread;
+        }
+    });
     // 代理
     public static HttpHost proxy = null;
     //
-    public static int MAX_CONN_TIMEOUT = 30;
+    public static int MAX_CONN_TIMEOUT = 15;
 
     private static final Log logger = LogFactory.getLog(SpiderUtils.class);
 
@@ -98,6 +112,9 @@ public class SpiderUtils {
 
         // 设置超时时间,10秒。宁可连接失败，也不能太慢
         connection.setConnectTimeout((int) TimeUnit.SECONDS.toMillis(MAX_CONN_TIMEOUT));
+        if(isInResourceSuffix(url)){
+            connection.setReadTimeout((int) TimeUnit.SECONDS.toMillis(MAX_CONN_TIMEOUT));
+        }
         // 建立实际的连接
         connection.connect();
         //
@@ -329,8 +346,6 @@ public class SpiderUtils {
         //
         return urlSet;
     }
-    //
-    public static ThreadLocal<Integer> deepRecorder = new ThreadLocal<Integer>();
 
     // 递归抓取
     public static void spiderGrab(String url, String basePath, List<String> whiteList, int maxDeep){
@@ -369,6 +384,9 @@ public class SpiderUtils {
         //
         log("准备抓取:" + url);
         GRABS_URL.put(url, url);
+        if(GRABS_URL.size() % 500 == 0){
+            System.out.println("GRABS_URL.size()="+GRABS_URL.size());
+        }
         String initContent = getUrlAsString(url);
         //
         Set<String> imgUrlSet = parseImageSet(initContent);
@@ -463,7 +481,26 @@ public class SpiderUtils {
         return false;
     }
 
-    public static void saveUrlAsFile(String url, File baseDir) {
+    public static void saveUrlAsFile(final String url, final File baseDir) {
+        Runnable runnable = new Runnable() {
+            @Override
+            public void run() {
+                downloadingTaskCount.incrementAndGet();
+                try {
+                    _saveUrlAsFile(url, baseDir);
+                } catch (Throwable ex){
+                    logger.error(ex);
+                } finally {
+                    downloadingTaskCount.decrementAndGet();
+                }
+            }
+        };
+        // 判断数量... 超过阀值。。。 等待?
+        //
+        downloadThreadPool.submit(runnable);
+    }
+
+    public static void _saveUrlAsFile(String url, File baseDir) {
         // 已经包含，则不进行处理
         if(GRABS_FILES.containsKey(url)){
             return;
@@ -537,6 +574,9 @@ public class SpiderUtils {
         }
         //
         GRABS_FILES.put(url, url);
+        if(GRABS_FILES.size() % 100 == 0){
+            System.out.println("GRABS_FILES.size()="+GRABS_FILES.size());
+        }
     }
 
     //

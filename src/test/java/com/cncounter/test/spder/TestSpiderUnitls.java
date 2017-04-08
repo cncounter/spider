@@ -13,6 +13,7 @@ import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 /**
  */
@@ -40,21 +41,23 @@ public class TestSpiderUnitls {
                 "pp.163.com",
                 "www.fuliwc.com",
                 "shipinmp4.com",
+                "mp4.79yyy.com",
         };
         //
         SpiderUtils.resourceSuffix.add(".xml");
         SpiderUtils.resourceSuffix.add(".ts");
         SpiderUtils.resourceSuffix.add(".mu38");
+        SpiderUtils.resourceSuffix.add(".m3u8");
         //
         List<String> hostList = Arrays.asList(targetHosts);
         //
         FileOutputStream errorLogOutputStream = null;
-        PrintStream err = System.err;
+        PrintStream err = System.out;
         try {
             // 错误日志。。。
-            //String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
-            //errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
-            //System.setErr(new PrintStream(errorLogOutputStream, true));
+            String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
+            errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
+            System.setOut(new PrintStream(errorLogOutputStream, true));
 
             // 开始迭代抓取;
             // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
@@ -64,6 +67,9 @@ public class TestSpiderUnitls {
             //for(int i=300; i<= 1422; i++){
                 initUrl = path;// + i;
                 SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
+            while(SpiderUtils.downloadingTaskCount.get() > 0){
+                TimeUnit.SECONDS.sleep(5L); // 主线程等待
+            }
             //}
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
