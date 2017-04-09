@@ -9,9 +9,11 @@ import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.zip.GZIPInputStream;
 
 /**
  * 蜘蛛工具
@@ -24,16 +26,11 @@ public class SpiderUtils {
     public static ThreadLocal<Integer> deepRecorder = new ThreadLocal<Integer>();
     public static AtomicInteger downloadingTaskCount = new AtomicInteger(0);
     //
-    public static ExecutorService downloadThreadPool = Executors.newFixedThreadPool(10, new ThreadFactory() {
-        private AtomicInteger count = new AtomicInteger(0);
-        @Override
-        public Thread newThread(Runnable r) {
-            Thread thread = new Thread(r);
-            thread.setDaemon(true);
-            thread.setName("download-thread-" + count.getAndIncrement());
-            return thread;
-        }
-    });
+    public static boolean useMultiThread = true;
+    public static int downloadThreadPoolSize = 10;
+    public static int slowSleepMillis = 20;
+    //
+    public static ExecutorService downloadThreadPool = null;
     // 代理
     public static HttpHost proxy = null;
     //
@@ -58,6 +55,40 @@ public class SpiderUtils {
             return true;
         }
     };
+
+    private static AtomicBoolean inited = new AtomicBoolean(false);
+    private static void checkInit(){
+        if(inited.get()){
+            return;
+        }
+        //
+        initDownloadThreadPool();
+        //
+        inited.getAndSet(true);
+    }
+
+    private static synchronized void initDownloadThreadPool() {
+        //
+        if(null != downloadThreadPool){
+            return;
+        }
+        if(!useMultiThread){
+            return;
+        }
+        if(downloadThreadPoolSize < 0){
+            downloadThreadPoolSize = 1;
+        }
+        downloadThreadPool = Executors.newFixedThreadPool(downloadThreadPoolSize, new ThreadFactory() {
+            private AtomicInteger count = new AtomicInteger(0);
+            @Override
+            public Thread newThread(Runnable r) {
+                Thread thread = new Thread(r);
+                thread.setDaemon(true);
+                thread.setName("download-thread-" + count.getAndIncrement());
+                return thread;
+            }
+        });
+    }
 
     /**
      * 将URL连接为 InputStream, 主要用于下载文件
@@ -117,8 +148,14 @@ public class SpiderUtils {
         }
         // 建立实际的连接
         connection.connect();
+
         //
         inputStream = connection.getInputStream();
+        // 处理 gzip
+        String contentEncoding = connection.getContentEncoding();
+        if(null != contentEncoding && contentEncoding.contains("gzip")){
+            inputStream = new GZIPInputStream(inputStream);
+        }
         //
         return inputStream;
     }
@@ -128,7 +165,11 @@ public class SpiderUtils {
         //
         byte[] result = new byte[0];
         try {
-            result = IOUtils.toByteArray(inputStream);
+            if(null != inputStream){
+                result = IOUtils.toByteArray(inputStream);
+            } else {
+                logger.error("下载出错: url="+url);
+            }
         } catch (IOException e) {
             logger.error("下载出错: url="+url);
             logger.error("下载出错: inputStream="+inputStream);
@@ -225,6 +266,7 @@ public class SpiderUtils {
             // 不需要特殊处理
             return resourceUrl;
         }
+        resourceUrl = resourceUrl.replace("\\", "/");
         //以下方法对相对路径进行转换
         try {
             URL absoluteUrl = new URL(pageUrl);
@@ -302,6 +344,14 @@ public class SpiderUtils {
             }
 
             String src = cur.substring(srcStartIndex+1, srcEndIndex);
+            // 处理 # 的URL
+            if(null == src || src.isEmpty() || src.startsWith("#")){
+                continue;
+            }
+            int sharpIndex = src.indexOf("#");
+            if(sharpIndex > 0){
+                src = src.substring(0, sharpIndex);
+            }
             //
             urlSet.add(src);
         }
@@ -324,9 +374,13 @@ public class SpiderUtils {
             //
             int srcIndex = cur.indexOf("src=");
             int srcIndex1 = srcIndex + "src=".length();
-            if(srcIndex < 0){
+            if(srcIndex < 0 || cur.contains("data-original=")){
                 srcIndex = cur.indexOf("data-original=");
                 srcIndex1 = srcIndex + "data-original=".length();
+            }
+            if(srcIndex < 0 || cur.contains("data-src=")){
+                srcIndex = cur.indexOf("data-src=");
+                srcIndex1 = srcIndex + "data-src=".length();
             }
             // 没找到。。。
             if(srcIndex < 0){
@@ -340,6 +394,10 @@ public class SpiderUtils {
             //
             String src = cur.substring(srcStartIndex+1, srcEndIndex);
             //
+            if(null == src || src.isEmpty() || src.startsWith("data:image/")){
+                continue;
+            }
+            //
             urlSet.add(src);
         }
 
@@ -350,6 +408,7 @@ public class SpiderUtils {
     // 递归抓取
     public static void spiderGrab(String url, String basePath, List<String> whiteList, int maxDeep){
         //
+        checkInit();
         Integer curDeep = deepRecorder.get();
         if(null == curDeep){
             deepRecorder.set(0);
@@ -482,6 +541,16 @@ public class SpiderUtils {
     }
 
     public static void saveUrlAsFile(final String url, final File baseDir) {
+        if(!useMultiThread){
+            _saveUrlAsFile(url, baseDir);
+            //
+            try {
+                TimeUnit.MILLISECONDS.sleep(slowSleepMillis);
+            } catch (InterruptedException e) {
+                logger.error(e);
+            }
+            return;
+        }
         Runnable runnable = new Runnable() {
             @Override
             public void run() {
