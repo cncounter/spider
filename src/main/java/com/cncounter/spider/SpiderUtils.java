@@ -33,6 +33,8 @@ public class SpiderUtils {
     public static ExecutorService downloadThreadPool = null;
     // 代理
     public static HttpHost proxy = null;
+    public static List<String> proxyHostList = new ArrayList<String>();
+
     //
     public static int MAX_CONN_TIMEOUT = 15;
 
@@ -100,6 +102,7 @@ public class SpiderUtils {
         try {
             inputStream = _getUrlAsStream(url);
         } catch (IOException e) {
+            log("下载失败: url="+url);
             logger.error(e);
         }
         //
@@ -118,10 +121,10 @@ public class SpiderUtils {
         // 打开和URL之间的连接
         URLConnection connection = null;
         //
-        if(null == proxy){
-            connection = realUrl.openConnection();
-        } else {
+        if(null != proxy && isInProxyList(url)){
             connection = realUrl.openConnection(new Proxy(Proxy.Type.HTTP, new InetSocketAddress(proxy.getHostName(), proxy.getPort())));
+        } else {
+            connection = realUrl.openConnection();
         }
 
         Map<String, String> map = new HashMap<String,String>();
@@ -158,6 +161,24 @@ public class SpiderUtils {
         }
         //
         return inputStream;
+    }
+
+    private static boolean isInProxyList(String url) {
+        // 判断是否在代理名单。。。
+        boolean isIn = false;
+        if(null == url){ return isIn; }
+        isIn = proxyHostList.contains(url);
+        if(isIn){ return isIn; }
+        //
+        for(String proxyHost : proxyHostList){
+            if(null == proxyHost || proxyHost.trim().isEmpty()){ continue; }
+            //
+            if(url.contains(proxyHost)){
+                isIn = true;
+                break;
+            }
+        }
+        return isIn;
     }
 
     public static byte[] getUrlAsByteArray(String url){
@@ -414,7 +435,7 @@ public class SpiderUtils {
             deepRecorder.set(0);
             curDeep = deepRecorder.get();
         } else if(curDeep.intValue() > maxDeep){
-            // log("已经达到最大深度:curDeep="+curDeep);
+            // logger.info("已经达到最大深度:curDeep="+curDeep);
             return;
         }
         // 已经包含，则不进行处理
@@ -441,7 +462,7 @@ public class SpiderUtils {
             hostDir.mkdirs();
         }
         //
-        log("准备抓取:" + url);
+        logger.info("准备抓取:" + url);
         GRABS_URL.put(url, url);
         if(GRABS_URL.size() % 500 == 0){
             System.out.println("GRABS_URL.size()="+GRABS_URL.size());
@@ -461,7 +482,7 @@ public class SpiderUtils {
             }
         }
         // 遍历图片 ...
-        //log("===========================img:");
+        //logger.info("===========================img:");
         for(String imgUrl : imgUrlSet){
             // 保存到本地
             // 解析相对绝对路径
@@ -475,7 +496,7 @@ public class SpiderUtils {
             }
         }
         //
-        //log("===========================href:");
+        //logger.info("===========================href:");
         for(String href : hrefUrlSet){
             if(null == href){
                 continue;
@@ -492,7 +513,7 @@ public class SpiderUtils {
                 // 循环时-重置
                 deepRecorder.set(curDeep + 1);
                 if(curDeep + 1 > maxDeep){
-                    // log("已经达到最大深度:curDeep="+curDeep);
+                    // logger.info("已经达到最大深度:curDeep="+curDeep);
                     continue;
                 }
                 // 递归
@@ -618,7 +639,7 @@ public class SpiderUtils {
         String tempFileName = fileName + ".temp";
         File tempFile = new File(targetDir, tempFileName);
         //
-        log("准备下载:"+url);
+        logger.info("准备下载:"+url);
         InputStream inputStream = null;
         FileOutputStream fileOutputStream = null;
         try {
@@ -630,7 +651,7 @@ public class SpiderUtils {
                 // 重命名
                 tempFile.renameTo(outputFile);
                 //
-                log("文件下载成功: " + outputFile.getAbsolutePath());
+                log("文件下载成功: " + url);
             } else {
                 logger.debug("!!下载失败: url="+url);
             }
@@ -650,7 +671,7 @@ public class SpiderUtils {
 
     //
     public static void log(String msg){
-        logger.info(msg);
+        System.out.println(msg);
     }
 
 }

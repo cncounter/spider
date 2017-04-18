@@ -4,6 +4,7 @@ import com.cncounter.spider.SpiderUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+import org.apache.http.HttpHost;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -24,10 +25,7 @@ public class TestSpiderUnitlsProxy {
     public static void main(String[] args){
         // 初始URL
         String
-                initUrl = "http://beautyleg.com";
-        initUrl = "http://www.mzitu.com";
-        initUrl = "http://pp.163.com/square/";
-        initUrl = "http://www.fuliwc.com/";
+        initUrl = "http://www.legsjapan.com/en/";
         // 保存的基本路径
         String basePath = "D:\\usr\\spider_all";
         // 最大遍历深度
@@ -40,32 +38,35 @@ public class TestSpiderUnitlsProxy {
                 "pp.163.com",
                 "www.fuliwc.com",
                 "shipinmp4.com",
-                "mp4.79yyy.com",
+                "www.legsjapan.com",
+        };
+        String[] proxyHosts = {
+                "legsjapan.com"
         };
         //
-        SpiderUtils.resourceSuffix.add(".xml");
-        SpiderUtils.resourceSuffix.add(".ts");
-        SpiderUtils.resourceSuffix.add(".mu38");
-        SpiderUtils.resourceSuffix.add(".m3u8");
+        HttpHost proxy = new HttpHost("localhost", 1080);
+        //
+        SpiderUtils.proxy = proxy;
         //
         List<String> hostList = Arrays.asList(targetHosts);
+        List<String> proxyHostList = Arrays.asList(proxyHosts);
+        //
+        SpiderUtils.proxyHostList = proxyHostList;
+        //
+        SpiderUtils.useMultiThread = false;
+        SpiderUtils.downloadThreadPoolSize = 3;
+        SpiderUtils.slowSleepMillis = 20;
+        SpiderUtils.MAX_CONN_TIMEOUT = 60;
         //
         FileOutputStream errorLogOutputStream = null;
-        PrintStream err = System.err;
+        PrintStream err = System.out;
         try {
             // 错误日志。。。
             String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
             errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
-            System.setErr(new PrintStream(errorLogOutputStream, true));
-
-            // 开始迭代抓取;
-            // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
-            // http://www.beautyleg.com/sample.php?no=300-1422
-            String path = "http://201610.shipinmp4.com/";
-            //String path = "http://www.beautyleg.com/sample.php?no=";
-            //for(int i=300; i<= 1422; i++){
-                initUrl = path;// + i;
-                SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
+            System.setOut(new PrintStream(errorLogOutputStream, true));
+            //
+            SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
             while(SpiderUtils.downloadingTaskCount.get() > 0){
                 TimeUnit.SECONDS.sleep(5L); // 主线程等待
             }
@@ -74,7 +75,7 @@ public class TestSpiderUnitlsProxy {
             logger.error(e.getMessage(), e);
         } finally {
             //
-            System.setErr(err);
+            System.setOut(err);
             IOUtils.closeQuietly(errorLogOutputStream);
         }
 
