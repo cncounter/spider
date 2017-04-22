@@ -422,6 +422,54 @@ public class SpiderUtils {
             urlSet.add(src);
         }
 
+        Set<String> imgLiUrlSet = parseImageLiSet(content);
+        //
+        urlSet.addAll(imgLiUrlSet);
+        //
+        return urlSet;
+    }
+
+    // 解析图片列表
+    public static Set<String> parseImageLiSet(String content){
+        //
+        Set<String> urlSet = new HashSet<String>();
+        //
+        String regexStr = "<li[^>]+>";
+        //
+        Pattern pattern = Pattern.compile(regexStr);
+        Matcher matcher = pattern.matcher(content);
+        while(matcher.find()){
+            //
+            String cur = matcher.group();
+            //
+            int srcIndex = cur.indexOf("src=");
+            int srcIndex1 = srcIndex + "src=".length();
+            if(srcIndex < 0 || cur.contains("data-original=")){
+                srcIndex = cur.indexOf("data-original=");
+                srcIndex1 = srcIndex + "data-original=".length();
+            }
+            if(srcIndex < 0 || cur.contains("data-src=")){
+                srcIndex = cur.indexOf("data-src=");
+                srcIndex1 = srcIndex + "data-src=".length();
+            }
+            // 没找到。。。
+            if(srcIndex < 0){
+                continue;
+            }
+            //
+            String charSplit = cur.substring(srcIndex1, srcIndex1+1);
+            //
+            int srcStartIndex = cur.indexOf(charSplit, srcIndex1);
+            int srcEndIndex = cur.indexOf(charSplit, srcIndex1+1);
+            //
+            String src = cur.substring(srcStartIndex+1, srcEndIndex);
+            //
+            if(null == src || src.isEmpty() || src.startsWith("data:image/")){
+                continue;
+            }
+            //
+            urlSet.add(src);
+        }
         //
         return urlSet;
     }
@@ -471,7 +519,6 @@ public class SpiderUtils {
         //
         Set<String> imgUrlSet = parseImageSet(initContent);
         Set<String> hrefUrlSet = parseHrefSet(initContent);
-
         Iterator<String> iteratorH = hrefUrlSet.iterator();
         while (iteratorH.hasNext()){
             String href = iteratorH.next();
@@ -672,6 +719,7 @@ public class SpiderUtils {
     //
     public static void log(String msg){
         System.out.println(msg);
+        logger.info(msg);
     }
 
 }

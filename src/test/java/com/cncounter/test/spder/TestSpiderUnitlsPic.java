@@ -31,6 +31,7 @@ public class TestSpiderUnitlsPic {
         initUrl = "http://www.youzan6.com/";
         initUrl = "http://www.74gan.com/html/pic/156302.html";
         initUrl = "http://www.youzan6.com/post/5491.html?temp=0.8975390617551002";
+        initUrl = "http://www.topqing.com/ugirl/show-811.html";
         // 保存的基本路径
         String basePath = "D:\\usr\\spider_all";
         // 最大遍历深度
@@ -46,13 +47,14 @@ public class TestSpiderUnitlsPic {
                 "mp4.79yyy.com",
                 "youzan6.com",
                 "www.74gan.com",
+                "www.topqing.com",
         };
         //
         List<String> hostList = Arrays.asList(targetHosts);
         //
         SpiderUtils.useMultiThread = false;
         SpiderUtils.downloadThreadPoolSize = 3;
-        SpiderUtils.slowSleepMillis = 200;
+        SpiderUtils.slowSleepMillis = 40;
         //
         FileOutputStream errorLogOutputStream = null;
         PrintStream err = System.out;
@@ -61,22 +63,16 @@ public class TestSpiderUnitlsPic {
             String errorLog = "error_"+ new SimpleDateFormat("yyyyMMddHHmmss").format(new Date()) + ".log";
             errorLogOutputStream = new FileOutputStream(new File(basePath, errorLog));
             System.setOut(new PrintStream(errorLogOutputStream, true));
-
-            // 开始迭代抓取;
-            // TODO: 考虑返回值;分层逐级抓取; 不使用迭代
-            // http://www.beautyleg.com/sample.php?no=300-1422
-            //String path = "http://www.beautyleg.com/sample.php?no=";
-            //for(int i=300; i<= 1422; i++){
-                SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
+            //
+            SpiderUtils.spiderGrab(initUrl, basePath, hostList, maxDeep);
             while(SpiderUtils.downloadingTaskCount.get() > 0){
                 TimeUnit.SECONDS.sleep(5L); // 主线程等待
             }
-            //}
         } catch (Exception e) {
             logger.error(e.getMessage(), e);
         } finally {
             //
-            System.setErr(err);
+            System.setOut(err);
             IOUtils.closeQuietly(errorLogOutputStream);
         }
 
