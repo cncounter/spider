@@ -25,7 +25,7 @@ public class SpiderUtils {
     //
     public static ThreadLocal<Integer> deepRecorder = new ThreadLocal<Integer>();
     public static AtomicInteger downloadingTaskCount = new AtomicInteger(0);
-    //
+    // 控制抓取频率
     public static boolean useMultiThread = true;
     public static int downloadThreadPoolSize = 10;
     public static int slowSleepMillis = 20;
@@ -34,6 +34,8 @@ public class SpiderUtils {
     // 代理
     public static HttpHost proxy = null;
     public static List<String> proxyHostList = new ArrayList<String>();
+    // 只允许某种前缀
+    public static String filterURLPrefix = null;
 
     //
     public static int MAX_CONN_TIMEOUT = 15;
@@ -100,6 +102,7 @@ public class SpiderUtils {
     public static InputStream getUrlAsStream(String url){
         InputStream inputStream = null;
         try {
+            url = encodeURI(url);
             inputStream = _getUrlAsStream(url);
         } catch (IOException e) {
             log("下载失败: url="+url);
@@ -211,6 +214,12 @@ public class SpiderUtils {
         }
         //
         return str;
+    }
+
+    //
+    public static String encodeURI(String url){
+        url = url.replace(" ", "%20"); // 替换空格 ; TO_DO
+        return url;
     }
 
 
@@ -328,6 +337,11 @@ public class SpiderUtils {
             }
             targerUrl = concatUri(uriPath, resourceUrl);
         }
+        try {
+            targerUrl = URLEncoder.encode(targerUrl, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
         return targerUrl;
     }
     //
@@ -355,7 +369,7 @@ public class SpiderUtils {
             String charSplit = cur.substring(srcIndex1, srcIndex1+1);
             //
             int srcStartIndex = cur.indexOf(charSplit, srcIndex1);
-            int srcEndIndex = cur.indexOf(charSplit, srcIndex1+1);
+            int srcEndIndex = cur.indexOf(charSplit, srcIndex1 + 1);
             //
             if(srcStartIndex < 0 || srcEndIndex < 1){
                 continue;
@@ -364,7 +378,7 @@ public class SpiderUtils {
                 continue;
             }
 
-            String src = cur.substring(srcStartIndex+1, srcEndIndex);
+            String src = cur.substring(srcStartIndex + 1, srcEndIndex);
             // 处理 # 的URL
             if(null == src || src.isEmpty() || src.startsWith("#")){
                 continue;
@@ -408,12 +422,23 @@ public class SpiderUtils {
                 continue;
             }
             //
-            String charSplit = cur.substring(srcIndex1, srcIndex1+1);
+            String charSplit = cur.substring(srcIndex1, srcIndex1 + 1);
             //
             int srcStartIndex = cur.indexOf(charSplit, srcIndex1);
-            int srcEndIndex = cur.indexOf(charSplit, srcIndex1+1);
+            int srcEndIndex = cur.indexOf(charSplit, srcIndex1 + 1);
+            if("'".equals(charSplit) || "\"".equals(charSplit) ){
+            } else {
+                srcStartIndex = srcIndex1 -1;
+                srcEndIndex=cur.indexOf(" ", srcIndex1 + 1);
+            }
+            if(srcStartIndex < 0 || srcEndIndex<0){
+                continue;
+            }
+            if(srcStartIndex >= srcEndIndex){
+                continue;
+            }
             //
-            String src = cur.substring(srcStartIndex+1, srcEndIndex);
+            String src = cur.substring(srcStartIndex + 1, srcEndIndex);
             //
             if(null == src || src.isEmpty() || src.startsWith("data:image/")){
                 continue;
@@ -462,7 +487,7 @@ public class SpiderUtils {
             int srcStartIndex = cur.indexOf(charSplit, srcIndex1);
             int srcEndIndex = cur.indexOf(charSplit, srcIndex1+1);
             //
-            String src = cur.substring(srcStartIndex+1, srcEndIndex);
+            String src = cur.substring(srcStartIndex + 1, srcEndIndex);
             //
             if(null == src || src.isEmpty() || src.startsWith("data:image/")){
                 continue;
@@ -508,6 +533,18 @@ public class SpiderUtils {
         File hostDir = new File(baseDir, host);
         if(!hostDir.exists()){
             hostDir.mkdirs();
+        }
+        // 只抓取特定前缀时
+        if(null != filterURLPrefix && !url.startsWith(filterURLPrefix)){
+            return;
+        }
+        // 控制抓取频率
+        if(!useMultiThread){
+            try {
+                TimeUnit.MILLISECONDS.sleep(slowSleepMillis);
+            } catch (InterruptedException e) {
+                logger.error(e);
+            }
         }
         //
         logger.info("准备抓取:" + url);
@@ -640,6 +677,9 @@ public class SpiderUtils {
     public static void _saveUrlAsFile(String url, File baseDir) {
         // 已经包含，则不进行处理
         if(GRABS_FILES.containsKey(url)){
+            return;
+        }
+        if(!isInResourceSuffix(url)){
             return;
         }
 
