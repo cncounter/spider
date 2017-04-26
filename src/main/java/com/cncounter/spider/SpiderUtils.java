@@ -516,6 +516,11 @@ public class SpiderUtils {
             return;
         }
 
+        GRABS_URL.put(url, url);
+        if(GRABS_URL.size() % 100 == 0){
+            System.out.println("GRABS_URL.size()="+GRABS_URL.size());
+        }
+
         // 创建目录
         File baseDir = new File(basePath);
         if(!baseDir.exists()){
@@ -548,10 +553,6 @@ public class SpiderUtils {
         }
         //
         logger.info("准备抓取:" + url);
-        GRABS_URL.put(url, url);
-        if(GRABS_URL.size() % 500 == 0){
-            System.out.println("GRABS_URL.size()="+GRABS_URL.size());
-        }
         String initContent = getUrlAsString(url);
         //
         Set<String> imgUrlSet = parseImageSet(initContent);
