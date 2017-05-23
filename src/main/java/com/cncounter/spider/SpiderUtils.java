@@ -391,6 +391,18 @@ public class SpiderUtils {
             if(src.contains("\n") || src.contains("'") || src.contains("\"")){
                 continue;
             }
+            if(src.startsWith("(")){
+                src = src.substring(1);
+            }
+            if(src.startsWith("%28")){
+                src = src.substring(3);
+            }
+            if(src.endsWith(")")){
+                src = src.substring(0, src.length()-1);
+            }
+            if(src.startsWith("%29")){
+                src = src.substring(0, src.length()-3);
+            }
             //
             urlSet.add(src);
         }
@@ -450,6 +462,18 @@ public class SpiderUtils {
             // 不是标准的src
             if(src.contains("\n") || src.contains("'") || src.contains("\"")){
                 continue;
+            }
+            if(src.startsWith("(")){
+                src = src.substring(1);
+            }
+            if(src.startsWith("%28")){
+                src = src.substring(3);
+            }
+            if(src.endsWith(")")){
+                src = src.substring(0, src.length()-1);
+            }
+            if(src.startsWith("%29")){
+                src = src.substring(0, src.length()-3);
             }
             urlSet.add(src);
         }
