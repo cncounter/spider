@@ -387,6 +387,10 @@ public class SpiderUtils {
             if(sharpIndex > 0){
                 src = src.substring(0, sharpIndex);
             }
+            // 不是标准的src
+            if(src.contains("\n") || src.contains("'") || src.contains("\"")){
+                continue;
+            }
             //
             urlSet.add(src);
         }
@@ -443,7 +447,10 @@ public class SpiderUtils {
             if(null == src || src.isEmpty() || src.startsWith("data:image/")){
                 continue;
             }
-            //
+            // 不是标准的src
+            if(src.contains("\n") || src.contains("'") || src.contains("\"")){
+                continue;
+            }
             urlSet.add(src);
         }
 
@@ -482,10 +489,10 @@ public class SpiderUtils {
                 continue;
             }
             //
-            String charSplit = cur.substring(srcIndex1, srcIndex1+1);
+            String charSplit = cur.substring(srcIndex1, srcIndex1 + 1);
             //
             int srcStartIndex = cur.indexOf(charSplit, srcIndex1);
-            int srcEndIndex = cur.indexOf(charSplit, srcIndex1+1);
+            int srcEndIndex = cur.indexOf(charSplit, srcIndex1 + 1);
             //
             String src = cur.substring(srcStartIndex + 1, srcEndIndex);
             //
